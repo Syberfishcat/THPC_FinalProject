@@ -41,22 +41,34 @@ int main(int argc, char* argv[]) {
         num_trials = std::stoi(argv[2]);
     }
     
-    // Random seach
+    // Randomly shuffle the initial route
     std::mt19937 rng(42);
     std::vector<int> route(N);
  
     for (int i = 0; i < N; ++i) route[i] = i; // Initial
+    std::shuffle(route.begin(), route.end(), rng);
     double best_length = route_length(route, x, y);
     std::vector<int> best_route = route;
 
+    // Local search: swap two cities and check if it improves the route
     for (int trial = 0; trial < num_trials; ++trial) {
-        std::shuffle(route.begin(), route.end(), rng);
-        double length = route_length(route, x, y);
+        std::vector<int> candidate = best_route;
+        
+        std::uniform_int_distribution<int> position(0, N - 1);
+        int i = position(rng);
+        int j = position(rng);
+        while (j == i) {
+            j = position(rng);
+        }
+        std::swap(candidate[i], candidate[j]);
+        double length = route_length(candidate, x, y);
         if (length < best_length) {
             best_length = length;
-            best_route = route;
+            best_route = candidate;
+            std::cerr << "  trial " << trial << ": new best = " << best_length << std::endl;
         }
     }
+
     std::cout << "Best Length: " << best_length << std::endl;
     std::cout << "Best Route:";
     for (const auto& c : best_route) std::cout << " " << c;
