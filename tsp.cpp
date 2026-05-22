@@ -4,6 +4,7 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
+#include <mpi.h>
 
 double route_length(const std::vector<int>& route,
                     const std::vector<double>& x,
@@ -112,13 +113,13 @@ std::vector<int> crossover(const std::vector<int>& p1,
     return child;
 }
 
-void GA(std::vector<double>& x, std::vector<double>& y) {
+void GA(std::vector<double>& x, std::vector<double>& y, int rank) {
     int pop_size = 100;
     int num_generations = 1000;
     int elite_count = 10;
     int N = x.size();
 
-    std::mt19937 rng(42);
+    std::mt19937 rng(42 + rank);
     std::uniform_int_distribution<int> position(0, N - 1);
 
     // Initialize population
@@ -134,7 +135,7 @@ void GA(std::vector<double>& x, std::vector<double>& y) {
         fitness[i] = route_length(population[i], x, y);
     }
 
-    std::cerr << "Initial best: " << fitness[find_best(fitness)] << std::endl;
+    std::cerr << "Rank " << rank << " initial best: " << fitness[find_best(fitness)] << std::endl;
 
     // Main GA loop
     for(int gen = 0; gen < num_generations; ++gen) {
@@ -180,20 +181,31 @@ void GA(std::vector<double>& x, std::vector<double>& y) {
         }
 
         // print progress
-        if(gen % 100 == 0 || gen == num_generations - 1) {
+        if(rank == 0 && (gen % 100 == 0 || gen == num_generations - 1)) {
             std::cerr << "Generation " << gen << ": best = " << fitness[find_best(fitness)] << std::endl;
         }
     }
 
     // Output best solution
     int best_index = find_best(fitness);
-    
-    std::cout << "Best Length: " << fitness[best_index] << std::endl;
-    std::cout << "Best Route:";
-    for (const auto& c : population[best_index]) std::cout << " " << c;
+    std::cerr << "Rank " << rank << " final best: " << fitness[best_index] << std::endl;
+
+    double my_best = fitness[best_index];
+
+    double global_best;
+    MPI_Reduce(&my_best, &global_best, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    if (rank == 0) {
+        std::cout << "Global Best Length: " << global_best << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]) {
+    MPI_Init(&argc, &argv);
+
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
     if(argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <input_file>" << std::endl;
         return 1;
@@ -211,6 +223,7 @@ int main(int argc, char* argv[]) {
     }
 
     //baseline(x, y, 1000000);
-    GA(x, y);
+    GA(x, y, rank);
+    MPI_Finalize();
     return 0;
 }
