@@ -1,1 +1,11 @@
-tsp
+# Build outputs
+/tsp
+*.o
+*.out
+*.dSYM/
+
+# Editor/local config
+.vscode/
+
+# macOS
+.DS_Store
