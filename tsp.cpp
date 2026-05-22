@@ -113,7 +113,7 @@ std::vector<int> crossover(const std::vector<int>& p1,
     return child;
 }
 
-void GA(std::vector<double>& x, std::vector<double>& y, int rank) {
+void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size) {
     int pop_size = 100;
     int num_generations = 1000;
     int elite_count = 10;
@@ -180,6 +180,38 @@ void GA(std::vector<double>& x, std::vector<double>& y, int rank) {
             fitness[i] = route_length(population[i], x, y);
         }
 
+        //Migration
+        int migration_interval = 50;
+        if((gen + 1) % migration_interval == 0 && size > 1) {
+            // Find best solution in current population
+            int my_best_index = find_best(fitness);
+
+            // Find worest solution in current population
+            int my_worst_index = 0;
+            for (int i = 1; i < pop_size; ++i) {
+                if (fitness[i] > fitness[my_worst_index]) {
+                    my_worst_index = i;
+                }
+            }
+
+            // Prepare buffer for sending
+            std::vector<int> send_buffer = population[my_best_index];
+            std::vector<int> recv_buffer(N);
+
+            // Circular migration: send to (rank + 1) % size, receive from (rank - 1 + size) % size
+            int send_to = (rank + 1) % size;
+            int recv_from = (rank - 1 + size) % size;
+
+            // Send and receive best solution
+            MPI_Sendrecv(send_buffer.data(), N, MPI_INT, send_to, 0,
+                         recv_buffer.data(), N, MPI_INT, recv_from, 0, 
+                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+            // Replace worst solution with received solution
+            population[my_worst_index] = recv_buffer;
+            fitness[my_worst_index] = route_length(population[my_worst_index], x, y);
+        }
+
         // print progress
         if(rank == 0 && (gen % 100 == 0 || gen == num_generations - 1)) {
             std::cerr << "Generation " << gen << ": best = " << fitness[find_best(fitness)] << std::endl;
@@ -223,7 +255,15 @@ int main(int argc, char* argv[]) {
     }
 
     //baseline(x, y, 1000000);
-    GA(x, y, rank);
+    double t_start = MPI_Wtime();
+
+    GA(x, y, rank, size);
+
+    double t_end = MPI_Wtime();
+    if(rank == 0) {
+        std::cout << "Total Time: " << (t_end - t_start) << " seconds" << std::endl;
+    }
+    
     MPI_Finalize();
     return 0;
 }
