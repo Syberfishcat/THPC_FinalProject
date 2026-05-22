@@ -52,6 +52,16 @@ void baseline(std::vector<double>& x, std::vector<double>& y, int num_trials) {
     for (const auto& c : best_route) std::cout << " " << c;
 }
 
+int find_best(const std::vector<double>& fitness) {
+    int best_index = 0;
+    for (int i = 1; i < fitness.size(); ++i) {
+        if (fitness[i] < fitness[best_index]) {
+            best_index = i;
+        }
+    }
+    return best_index;
+}
+
 void GA(std::vector<double>& x, std::vector<double>& y) {
     int pop_size = 100;
     //int num_generations = 1000;
@@ -71,18 +81,11 @@ void GA(std::vector<double>& x, std::vector<double>& y) {
         fitness[i] = route_length(population[i], x, y);
     }
 
-    //Find best solution
-    double best_length = fitness[0];
-    std::vector<int> best_route = population[0];
-    for(int i = 1; i < pop_size; ++i) {
-        if(fitness[i] < best_length) {
-            best_length = fitness[i];
-            best_route = population[i];
-        }
-    }
-    std::cout << "Best Length: " << best_length << std::endl;
+    int best_index = find_best(fitness);
+    
+    std::cout << "Best Length: " << fitness[best_index] << std::endl;
     std::cout << "Best Route:";
-    for (const auto& c : best_route) std::cout << " " << c;
+    for (const auto& c : population[best_index]) std::cout << " " << c;
 }
 
 int main(int argc, char* argv[]) {
