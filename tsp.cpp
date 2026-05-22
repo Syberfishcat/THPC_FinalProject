@@ -20,6 +20,7 @@ double route_length(const std::vector<int>& route,
     return length;
 }
 
+// Baseline: hill climbing local search (for comparison)
 void baseline(std::vector<double>& x, std::vector<double>& y, int num_trials) {
     std::mt19937 rng(42);
     std::vector<int> route(x.size());
@@ -113,10 +114,8 @@ std::vector<int> crossover(const std::vector<int>& p1,
     return child;
 }
 
-void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size) {
-    int total_pop = 1600;
+void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size, int num_generations, int total_pop, int migration_interval, double mutation_rate) {
     int pop_size = total_pop / size;
-    int num_generations = 1000;
     int elite_count = std::max(2, pop_size / 10);
     int N = x.size();
 
@@ -150,7 +149,6 @@ void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size) {
         std::vector<std::vector<int>> new_population(pop_size, std::vector<int>(N));
         std::uniform_int_distribution<int> elite_pick(0, elite_count - 1);
         std::uniform_real_distribution<double> prob(0.0, 1.0);
-        double mutation_rate = 0.1;
 
         for(int i = 0; i < elite_count; ++i) {
             new_population[i] = population[indices[i]];
@@ -182,7 +180,6 @@ void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size) {
         }
 
         //Migration
-        int migration_interval = 50;
         if((gen + 1) % migration_interval == 0 && size > 1) {
             // Find best solution in current population
             int my_best_index = find_best(fitness);
@@ -240,12 +237,24 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     if(argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <input_file>" << std::endl;
+        if(rank == 0) {
+            std::cerr << "Usage: " << argv[0]
+                      << " <cities_file> [generations] [total_population] [migration_interval] [mutation_rate]" << std::endl;
+            std::cerr << "Defaults: generations = 1000, total_population = 1600, migration_interval = 50, mutation_rate = 0.1" << std::endl;
+        }
+        MPI_Finalize();
         return 1;
     }
+
+    int num_generations = (argc >= 3) ? std::stoi(argv[2]) : 1000;
+    int total_pop = (argc >= 4) ? std::stoi(argv[3]) : 1600;
+    int migration_interval = (argc >= 5) ? std::stoi(argv[4]) : 50;
+    double mutation_rate = (argc >= 6) ? std::stod(argv[5]) : 0.1;
+
     std::ifstream fin(argv[1]);
     if(!fin) {
         std::cerr << "Cannot open file: " << argv[1] << std::endl;
+        MPI_Finalize();
         return 1;
     }
     int N;
@@ -255,12 +264,21 @@ int main(int argc, char* argv[]) {
         fin >> x[i] >> y[i];
     }
 
+    if (rank == 0) {
+        std::cerr << "Parameters: N=" << N
+                  << ", generations=" << num_generations
+                  << ", total_population=" << total_pop
+                  << ", migration_interval=" << migration_interval
+                  << ", mutation_rate=" << mutation_rate
+                  << ", size=" << size
+                  << std::endl;
+    }
+
     //baseline(x, y, 1000000);
     double t_start = MPI_Wtime();
-
-    GA(x, y, rank, size);
-
+    GA(x, y, rank, size, num_generations, total_pop, migration_interval, mutation_rate);
     double t_end = MPI_Wtime();
+
     if(rank == 0) {
         std::cout << "Total Time: " << (t_end - t_start) << " seconds" << std::endl;
     }
