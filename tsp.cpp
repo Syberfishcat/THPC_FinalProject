@@ -64,9 +64,12 @@ int find_best(const std::vector<double>& fitness) {
 
 void GA(std::vector<double>& x, std::vector<double>& y) {
     int pop_size = 100;
-    //int num_generations = 1000;
+    int num_generations = 1000;
+    int elite_count = 10;
     int N = x.size();
+
     std::mt19937 rng(42);
+    std::uniform_int_distribution<int> position(0, N - 1);
 
     // Initialize population
     std::vector<std::vector<int>> population(pop_size, std::vector<int>(N));
@@ -81,6 +84,46 @@ void GA(std::vector<double>& x, std::vector<double>& y) {
         fitness[i] = route_length(population[i], x, y);
     }
 
+    std::cerr << "Initial best: " << fitness[find_best(fitness)] << std::endl;
+
+    // Main GA loop
+    for(int gen = 0; gen < num_generations; ++gen) {
+        // Selection (elitism)
+        std::vector<int> indices(pop_size);
+        for(int i = 0; i < pop_size; ++i) indices[i] = i;
+        std::partial_sort(indices.begin(), indices.begin() + elite_count, indices.end(),
+                          [&](int a, int b) { return fitness[a] < fitness[b]; });
+        
+        // new population
+        std::vector<std::vector<int>> new_population(pop_size, std::vector<int>(N));
+        for(int i = 0; i < elite_count; ++i) {
+            new_population[i] = population[indices[i]];
+        }
+        for(int i = elite_count; i < pop_size; ++i) {
+            int parent = indices[i % elite_count];
+            new_population[i] = population[parent];
+            // Mutation: swap two cities
+            int a = position(rng);
+            int b = position(rng);
+            while (b == a) {
+                b = position(rng);
+            }
+            std::swap(new_population[i][a], new_population[i][b]);
+        }
+
+        // Evaluate new population and replace
+        population = new_population;
+        for(int i = 0; i < pop_size; ++i) {
+            fitness[i] = route_length(population[i], x, y);
+        }
+
+        // print progress
+        if(gen % 100 == 0 || gen == num_generations - 1) {
+            std::cerr << "Generation " << gen << ": best = " << fitness[find_best(fitness)] << std::endl;
+        }
+    }
+
+    // Output best solution
     int best_index = find_best(fitness);
     
     std::cout << "Best Length: " << fitness[best_index] << std::endl;
@@ -105,12 +148,7 @@ int main(int argc, char* argv[]) {
         fin >> x[i] >> y[i];
     }
 
-    // int num_trials = 10000;
-    // if (argc >= 3) {
-    //     num_trials = std::stoi(argv[2]);
-    // }
-
-    //baseline(x, y, num_trials);
+    //baseline(x, y, 1000000);
     GA(x, y);
     return 0;
 }
