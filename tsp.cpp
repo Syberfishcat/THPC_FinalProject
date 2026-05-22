@@ -114,9 +114,10 @@ std::vector<int> crossover(const std::vector<int>& p1,
 }
 
 void GA(std::vector<double>& x, std::vector<double>& y, int rank, int size) {
-    int pop_size = 100;
+    int total_pop = 1600;
+    int pop_size = total_pop / size;
     int num_generations = 1000;
-    int elite_count = 10;
+    int elite_count = std::max(2, pop_size / 10);
     int N = x.size();
 
     std::mt19937 rng(42 + rank);
@@ -263,7 +264,7 @@ int main(int argc, char* argv[]) {
     if(rank == 0) {
         std::cout << "Total Time: " << (t_end - t_start) << " seconds" << std::endl;
     }
-    
+
     MPI_Finalize();
     return 0;
 }
