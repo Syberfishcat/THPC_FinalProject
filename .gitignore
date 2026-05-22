@@ -1,11 +1,25 @@
-# Build outputs
-/tsp
+# Build outputs (binaries)
+tsp
+gen_cities
+mpi_hello
 *.o
 *.out
 *.dSYM/
 
+# Generated test data
+cities_*.txt
+
+# SLURM job scripts
+job_np*.sh
+slurm-*.out
+bench_*.out
+
 # Editor/local config
 .vscode/
+.idea/
 
 # macOS
 .DS_Store
+
+# Linux
+*~
